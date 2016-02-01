@@ -143,12 +143,34 @@ def read_board(game_page):
 
     return game(board,match,state,players)
 
-def int_move(move):
-    ab = move.split('/')
-    if ab[0]=='bar': ab[0]='25'
-    if ab[1]=='off': ab[1]='0'
-    ab = [ int(x) for x in ab ]
-    return ab
+class hint:
+    def __init__(self,txt,dice,points):
+        self.hits = []
+        self.moves = []
+        for move in txt.split():
+            pos = move.split('/')
+            pos_int = []
+            for p in pos:
+                if p=='bar':
+                    pos_int.append(25)
+                elif p=='off':
+                    pos_int.append(0)
+                elif p[-1]=='*':
+                    p_int = int(p[:-1])
+                    self.hits.append(p_int)
+                    pos_int.append(p_int)
+                else:
+                    pos_int.append(int(p))
+            for p in [ pos_int[i:i+2] for i in range(0,len(pos_int)-1) ]:
+                d = p[0]-p[1]
+                while d!=dice[0] and d!=dice[1]:
+                    die = dice[0]
+                    if p[0]-die in points:
+                        die = dice[1]
+                    self.moves.append([p[0],p[0]-die])
+                    p[0] = p[0]-die
+                    d = p[0]-p[1]
+                self.moves.append(p)
 
 #####################################################################
 # Open requests session #############################################
@@ -163,7 +185,7 @@ with requests.Session() as s:
         sys.exit(1)
 
     # Read game page ------------------------------------------------
-    gid = '2971431'
+    gid = '2982790'
     url = 'http://zooescape.com/backgammon.pl?v=200&gid=%s' % (gid)
     g = read_board(s.get(url).text)
     print g.board+':'+g.match+'\n'
@@ -174,6 +196,7 @@ with requests.Session() as s:
 set sound enable false
 set threads 4
 set evaluation chequerplay evaluation plies 3
+set evaluation chequerplay evaluation cubeful off
 set evaluation cubedecision evaluation cubeful off
 
 set beavers 0
@@ -194,24 +217,30 @@ hint
     gnubg = gnubg[:gnubg.find('Eq')]
     gnubg = gnubg[gnubg.rfind('ply')+3:].strip()
 
-    # gnubg = '5/off 6/2'
+    hint1 = hint(
+        gnubg,
+        [ int(x) for x in g.state[3] ],
+        []
+    )
+    print "Hits : ", hint1.hits
+    print "Moves: ", hint1.moves
 
-    moves = [ int_move(x) for x in re.findall(r'[^ ]+/[^ ]+', gnubg) ]
-    print moves
-    moves = sorted(moves, key=lambda x: x[0]-x[1])
-    print moves
-    moves = ''.join([ (alphA if g.black()==g.p1 else alphz)[x[0]]
-                      for x in moves ])
-    print moves
+    hint2 = hint(
+        "bar/13 12/6*/off",
+        [ int(x) for x in '66' ],
+        []
+    )
+    print "Hits : ", hint2.hits
+    print "Moves: ", hint2.moves
 
     # Send move request ---------------------------------------------
     move = {
-        'bg_form_moves'   : ''.join(sorted(list(g.state[3])))+moves,
-        'bg_form_pips_b'  : str(get_pip(g.state[0],g.black()==g.p1)),
-        'bg_form_pips_w'  : str(get_pip(g.state[0],g.white()==g.p1) \
+        'bg_form_moves'   : g.state[3],
+        'bg_form_pips_b'  : str(get_pip(g.state[0],True)),
+        'bg_form_pips_w'  : str(get_pip(g.state[0],False) \
                             - int(g.state[3][0]) - int(g.state[3][1]) ),
         'bg_submit'       : '1',
         'bg_button_submit': 'Submit',
-        'bg_turn_num'     : len(re.findall(r'[1-6]{2}[a-zA-Z]+', g.state[1]))
+        'bg_turn_num'     : len(re.findall(r'[1-6]{2}[a-zA-Z]*', g.state[1]))
     }
     print move
