@@ -143,8 +143,14 @@ class hint:
     def __init__(self,txt,dice,points):
         self.hits = []
         self.moves = []
+        self.dice = dice
         print 'points = ', points
-        for move in txt.split():
+        rep = re.findall(r'\([2-4]\)',txt)
+        txt2 = txt
+        if len(rep)>0:
+            rep = int(rep[0][1])
+            txt2 = re.sub('([^ ]+)\\(%d\\)'%(rep), '\\1 '*rep, txt)
+        for move in txt2.split():
             pos = move.split('/')
             pos_int = []
             for p in pos:
@@ -161,6 +167,8 @@ class hint:
             for p in [ pos_int[i:i+2] for i in range(0,len(pos_int)-1) ]:
                 d = p[0]-p[1]
                 while d!=dice[0] and d!=dice[1]:
+                    # bear off with larger die
+                    if (d<max(dice)) and (p[1]==0): break
                     die = dice[0]
                     if p[0]-die in points:
                         die = dice[1]
@@ -170,8 +178,8 @@ class hint:
                 self.moves.append(p)
         # flip the moves order if necessary
         if (len(self.moves)==2) \
-        and (self.moves[0][0]-self.moves[0][1]!=dice[0]):
-            self.moves[0], self.moves[1] = self.moves[1], self.moves[0]
+        and (self.moves[0][0]-self.moves[0][1]>dice[0]):
+            self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
 
 #####################################################################
 # Open requests session #############################################
@@ -186,7 +194,7 @@ with requests.Session() as s:
         sys.exit(1)
 
     # Read game page ------------------------------------------------
-    gid = '2989310'
+    gid = '2995304'
     url = 'http://zooescape.com/backgammon.pl?v=200&gid=%s' % (gid)
     g = read_board(s.get(url).text)
     print g.board+':'+g.match+'\n'
@@ -220,7 +228,7 @@ hint
 
     h = hint( gnubg, g.dice,
         [ 25-alphA.find(x[0]) \
-          for x in re.findall(r'[A-Z].', g.state[0]) if int(x[1])>1 ]
+          for x in re.findall(r'[A-Z].', g.state[0]) if int(x[1],16)>1 ]
     )
     print "Hits : ", h.hits
     print "Moves: ", h.moves
@@ -230,7 +238,7 @@ hint
 
     # Send move request ---------------------------------------------
     move = {
-        'bg_form_moves'   : g.state[3]+''.join([ \
+        'bg_form_moves'   : ''.join([str(x) for x in h.dice])+''.join([ \
                             (alphA if g.moving_black else alphz)[x[0]] \
                             for x in h.moves ]),
         'bg_form_pips_b'  : str(get_pip(g.state[0],not g.moving_black) \
@@ -242,3 +250,5 @@ hint
         'bg_turn_num'     : len(re.findall(r'[1-6]{2}[a-zA-Z]*', g.state[1]))
     }
     print move
+
+    s.post(url, move)
