@@ -58,18 +58,14 @@ def encode_idbits(bit_array):
     return gnubgid
 
 class game:
-    def __init__(self,board,match,state,players):
+    def __init__(self,board,match,state,players,moving):
         self.board = board
         self.match = match
         self.state = state
-        self.p0 = players[0]
-        self.p1 = players[1]
-
-    def white(self):
-        return self.p0 if self.p0[5]=='a' else self.p1
-
-    def black(self):
-        return self.p0 if self.p0[5]=='A' else self.p1
+        self.players = players
+        self.moving = moving
+        self.moving_black = self.players[self.moving][5]=='A'
+        self.dice = [ int(x) for x in state[3] ]
 
 def read_board(game_page):
     # Get game state variables ######################################
@@ -141,12 +137,13 @@ def read_board(game_page):
 
     match = encode_idbits(bit_array)
 
-    return game(board,match,state,players)
+    return game(board,match,state,players,moving)
 
 class hint:
     def __init__(self,txt,dice,points):
         self.hits = []
         self.moves = []
+        print 'points = ', points
         for move in txt.split():
             pos = move.split('/')
             pos_int = []
@@ -185,7 +182,7 @@ with requests.Session() as s:
         sys.exit(1)
 
     # Read game page ------------------------------------------------
-    gid = '2982790'
+    gid = '2993968'
     url = 'http://zooescape.com/backgammon.pl?v=200&gid=%s' % (gid)
     g = read_board(s.get(url).text)
     print g.board+':'+g.match+'\n'
@@ -217,28 +214,25 @@ hint
     gnubg = gnubg[:gnubg.find('Eq')]
     gnubg = gnubg[gnubg.rfind('ply')+3:].strip()
 
-    hint1 = hint(
-        gnubg,
-        [ int(x) for x in g.state[3] ],
-        []
+    h = hint( gnubg, g.dice,
+        [ 25-alphA.find(x[0]) \
+          for x in re.findall(r'[A-Z].', g.state[0]) if int(x[1])>1 ]
     )
-    print "Hits : ", hint1.hits
-    print "Moves: ", hint1.moves
+    print "Hits : ", h.hits
+    print "Moves: ", h.moves
 
-    hint2 = hint(
-        "bar/13 12/6*/off",
-        [ int(x) for x in '66' ],
-        []
-    )
-    print "Hits : ", hint2.hits
-    print "Moves: ", hint2.moves
+    moving_dpip  = -sum([ x[0]-x[1] for x in h.moves ])
+    oponent_dpip =  sum(h.hits)
 
     # Send move request ---------------------------------------------
     move = {
-        'bg_form_moves'   : g.state[3],
-        'bg_form_pips_b'  : str(get_pip(g.state[0],True)),
-        'bg_form_pips_w'  : str(get_pip(g.state[0],False) \
-                            - int(g.state[3][0]) - int(g.state[3][1]) ),
+        'bg_form_moves'   : g.state[3]+''.join([ \
+                            (alphA if g.moving_black else alphz)[x[0]] \
+                            for x in h.moves ]),
+        'bg_form_pips_b'  : str(get_pip(g.state[0],not g.moving_black) \
+                            + (moving_dpip if g.moving_black else oponent_dpip)),
+        'bg_form_pips_w'  : str(get_pip(g.state[0],g.moving_black) \
+                            + (oponent_dpip if g.moving_black else moving_dpip)),
         'bg_submit'       : '1',
         'bg_button_submit': 'Submit',
         'bg_turn_num'     : len(re.findall(r'[1-6]{2}[a-zA-Z]*', g.state[1]))
