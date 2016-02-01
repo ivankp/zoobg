@@ -168,6 +168,10 @@ class hint:
                     p[0] = p[0]-die
                     d = p[0]-p[1]
                 self.moves.append(p)
+        # flip the moves order if necessary
+        if (len(self.moves)==2) \
+        and (self.moves[0][0]-self.moves[0][1]!=dice[0]):
+            self.moves[0], self.moves[1] = self.moves[1], self.moves[0]
 
 #####################################################################
 # Open requests session #############################################
@@ -182,7 +186,7 @@ with requests.Session() as s:
         sys.exit(1)
 
     # Read game page ------------------------------------------------
-    gid = '2993968'
+    gid = '2989310'
     url = 'http://zooescape.com/backgammon.pl?v=200&gid=%s' % (gid)
     g = read_board(s.get(url).text)
     print g.board+':'+g.match+'\n'
