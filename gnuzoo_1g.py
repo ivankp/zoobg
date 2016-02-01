@@ -254,6 +254,12 @@ hint
         moving_dpip  = -sum([ x[0]-x[1] for x in h.moves ])
         oponent_dpip =  sum(h.hits)
 
+        turn = len(re.findall(r'[1-6]{2}[a-zA-Z]*', g.state[1]))
+
+        s.post('http://zooescape.com/backgammon-roll.pl', {
+            'gid': gid, 'turn': turn-1
+        })
+
         # Send move request ---------------------------------------------
         move = {
             'bg_form_moves'   : ''.join([str(x) for x in h.dice])+''.join([ \
@@ -265,7 +271,7 @@ hint
                                 + (oponent_dpip if g.moving_black else moving_dpip)),
             'bg_submit'       : '1',
             'bg_button_submit': 'Submit',
-            'bg_turn_num'     : len(re.findall(r'[1-6]{2}[a-zA-Z]*', g.state[1]))
+            'bg_turn_num'     : turn
         }
         print move
 
