@@ -3,7 +3,7 @@
 # References:
 # https://www.gnu.org/software/gnubg/manual/gnubg.html#A-technical-description-of-the-Position-ID
 
-import sys, requests, re, getpass
+import sys, requests, re, getpass, time
 from bitarray import bitarray
 from subprocess import Popen, PIPE, STDOUT
 
@@ -66,6 +66,11 @@ class game:
         self.moving = moving
         self.moving_black = self.players[self.moving][5]=='A'
         self.dice = [ int(x) for x in state[3] ]
+
+def current(game_page,pid):
+    SetStateMP  = find_all_between( game_page, 'Backgammon.SetStateMP(', ');' )[0]
+    state = [ x.strip(' "') for x in SetStateMP.split(', ') ]
+    return state[2]==pid
 
 def read_board(game_page):
     # Get game state variables ######################################
@@ -177,26 +182,18 @@ class hint:
                     d = p[0]-p[1]
                 self.moves.append(p)
         # flip the moves order if necessary
-        if (len(self.moves)==2) \
-        and (self.moves[0][0]-self.moves[0][1]>dice[0]):
-            self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
+        if (len(self.moves)==2):
+            if (self.moves[0][0]-self.moves[0][1]>dice[0]) \
+            or (self.moves[1][0]-self.moves[1][1]>dice[1]):
+                self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
 
-#####################################################################
-# Open requests session #############################################
-with requests.Session() as s:
-    # Log in --------------------------------------------------------
-    login_page = s.post('http://zooescape.com/login.pl', {
-        'userName': raw_input('Username: ') if len(sys.argv)==1 else sys.argv[1],
-        'password': getpass.getpass()
-    }).text
-    if login_page.find('Logging in.') == -1:
-        print login_page
-        sys.exit(1)
+def play(s,gid):
+    print 'gid = ', gid
 
-    # Read game page ------------------------------------------------
-    gid = '2995304'
     url = 'http://zooescape.com/backgammon.pl?v=200&gid=%s' % (gid)
-    g = read_board(s.get(url).text)
+    html = s.get(url).text
+
+    g = read_board(html)
     print g.board+':'+g.match+'\n'
 
     # Get hint from gnubg -------------------------------------------
@@ -236,6 +233,12 @@ hint
     moving_dpip  = -sum([ x[0]-x[1] for x in h.moves ])
     oponent_dpip =  sum(h.hits)
 
+    turn = len(re.findall(r'[1-6]{2}[a-zA-Z]*', g.state[1]))
+
+    s.post('http://zooescape.com/backgammon-roll.pl', {
+        'gid': gid, 'turn': turn-1
+    })
+
     # Send move request ---------------------------------------------
     move = {
         'bg_form_moves'   : ''.join([str(x) for x in h.dice])+''.join([ \
@@ -247,8 +250,36 @@ hint
                             + (oponent_dpip if g.moving_black else moving_dpip)),
         'bg_submit'       : '1',
         'bg_button_submit': 'Submit',
-        'bg_turn_num'     : len(re.findall(r'[1-6]{2}[a-zA-Z]*', g.state[1]))
+        'bg_turn_num'     : turn
     }
     print move
 
     s.post(url, move)
+
+payload = {
+    'userName': raw_input('Username: ') if len(sys.argv)==1 else sys.argv[1],
+    'password': getpass.getpass()
+}
+
+#####################################################################
+# Open requests session #############################################
+with requests.Session() as s:
+    pw_attempts = 0
+    while s.post('http://zooescape.com/login.pl', payload
+                ).text.find('Logging in.') == -1:
+        pw_attempts += 1
+        if pw_attempts > 2: sys.exit(1)
+        else: payload['password'] = getpass.getpass()
+
+    room = s.get('http://zooescape.com/backgammon-room.pl').text
+    table = find_all_between(find_all_between(room,'RoomObjInit','RoomSetup')[0],'[',']')
+    head = find_all_between( table[0], 'title:StringDecodeJS(\'', '\')' )
+
+    si = head.index('Game%3cBR%3eStatus') # status index
+    ti = head.index('Game%3cBR%3eType')   # type index
+    
+    for row in [ find_all_between(x,'{','}') for x in table[2:] ]:
+      if row[si].find('My Turn')!=-1:
+          i = row[si].find('gid=')+4
+          play(s,row[si][i:i+7])
+
