@@ -272,6 +272,27 @@ hint
 
     s.post(url, move)
 
+def play_all(s):
+    room = s.get('http://zooescape.com/backgammon-room.pl').text
+    table = find_all_between(
+        find_all_between(room,'RoomObjInit','RoomSetup')[0], '[',']' )
+    head = find_all_between( table[0], 'title:StringDecodeJS(\'', '\')' )
+
+    si = head.index('Game%3cBR%3eStatus') # status index
+    ti = head.index('Game%3cBR%3eType')   # type index
+
+    played = False
+
+    for row in [ find_all_between(x,'{','}') for x in table[2:] ]:
+      if row[si].find('My Turn')!=-1:
+          i = row[si].find('gid=')+4
+          play(s,row[si][i:i+7])
+          played = True
+
+    return played
+
+delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600]
+
 #####################################################################
 # Open requests session #############################################
 with requests.Session() as s:
@@ -286,18 +307,16 @@ with requests.Session() as s:
         else: payload['password'] = getpass.getpass()
 
     if args.gid is None:
-        room = s.get('http://zooescape.com/backgammon-room.pl').text
-        table = find_all_between(
-            find_all_between(room,'RoomObjInit','RoomSetup')[0], '[',']' )
-        head = find_all_between( table[0], 'title:StringDecodeJS(\'', '\')' )
+        if args.automatic:
+            i = 0
+            while True:
+                if play_all(s): i = 0
+                elif i!=len(delays)-1: i += 1
+                print "sleep %d" % (delays[i])
+                time.sleep(delays[i])
 
-        si = head.index('Game%3cBR%3eStatus') # status index
-        ti = head.index('Game%3cBR%3eType')   # type index
-
-        for row in [ find_all_between(x,'{','}') for x in table[2:] ]:
-          if row[si].find('My Turn')!=-1:
-              i = row[si].find('gid=')+4
-              play(s,row[si][i:i+7])
+        else:
+            play_all(s)
 
     else:
         play(s,args.gid)
