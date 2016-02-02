@@ -13,15 +13,16 @@ parser.add_argument('user', nargs='?', help='zooescape username')
 parser.add_argument('-g','--gid','--game', nargs='*',
     help='play only this game')
 parser.add_argument('--gnubg',
-    default=Popen(['which','gnubg'], stdout=PIPE).communicate()[0].rstrip('\n'),
     help='gnubg program full path')
 parser.add_argument('-a','--automatic', action='store_true', default=False,
     help='periodically check for moves')
 args = parser.parse_args()
 
-if args.gnubg=='':
-    print 'gnubg location must be specified with --gnubg'
-    sys.exit(1)
+if args.gnubg is None:
+    args.gnubg=Popen(['which','gnubg'], stdout=PIPE).communicate()[0].rstrip('\n')
+    if args.gnubg=='':
+        print 'gnubg location must be specified with --gnubg'
+        sys.exit(1)
 
 def find_all_between( s, first, last ):
     blocks = []
@@ -202,6 +203,16 @@ class hint:
             if (self.moves[0][0]-self.moves[0][1]>dice[0]) \
             or (self.moves[1][0]-self.moves[1][1]>dice[1]):
                 self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
+        elif len(self.moves)>2:
+            i = 0
+            while i<len(self.moves)-1:
+                if self.moves[i][1]==0 and self.moves[i+1][1]!=0:
+                    self.moves = self.moves[:i]+self.moves[i+1:]+[self.moves[i]]
+                else: i += 1
+            while i>0:
+                if self.moves[i][0]==25 and self.moves[i-1][0]!=25:
+                    self.moves = [self.moves[i]]+self.moves[:i]+self.moves[i+1:]
+                else: i -= 1
 
 def play(s,gid):
     print 'gid = ', gid
