@@ -7,6 +7,22 @@ import sys, requests, re, getpass, time
 from bitarray import bitarray
 from subprocess import Popen, PIPE, STDOUT
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('user', nargs='?', help='zooescape username')
+parser.add_argument('-g','--gid','--game', nargs='*',
+    help='play only this game')
+parser.add_argument('--gnubg',
+    default=Popen(['which','gnubg'], stdout=PIPE).communicate()[0].rstrip('\n'),
+    help='gnubg program full path')
+parser.add_argument('-a','--automatic', action='store_true', default=False,
+    help='periodically check for moves')
+args = parser.parse_args()
+
+if args.gnubg=='':
+    print 'gnubg location must be specified with --gnubg'
+    sys.exit(1)
+
 def find_all_between( s, first, last ):
     blocks = []
     start = 0
@@ -197,7 +213,7 @@ def play(s,gid):
     print g.board+':'+g.match+'\n'
 
     # Get hint from gnubg -------------------------------------------
-    pipe = Popen(['/usr/games/gnubg','-t'], stdout=PIPE, stdin=PIPE, stderr=STDOUT)
+    pipe = Popen([args.gnubg,'-t'], stdout=PIPE, stdin=PIPE, stderr=STDOUT)
     gnubg = pipe.communicate( input='''
 set sound enable false
 set threads 4
@@ -256,30 +272,32 @@ hint
 
     s.post(url, move)
 
-payload = {
-    'userName': raw_input('Username: ') if len(sys.argv)==1 else sys.argv[1],
-    'password': getpass.getpass()
-}
-
 #####################################################################
 # Open requests session #############################################
 with requests.Session() as s:
     pw_attempts = 0
-    while s.post('http://zooescape.com/login.pl', payload
+    while s.post('http://zooescape.com/login.pl',
+                { 'userName': raw_input('Username: ') \
+                              if args.user is None else args.user,
+                  'password': getpass.getpass() }
                 ).text.find('Logging in.') == -1:
         pw_attempts += 1
-        if pw_attempts > 2: sys.exit(1)
+        if pw_attempts == 3: sys.exit(1)
         else: payload['password'] = getpass.getpass()
 
-    room = s.get('http://zooescape.com/backgammon-room.pl').text
-    table = find_all_between(find_all_between(room,'RoomObjInit','RoomSetup')[0],'[',']')
-    head = find_all_between( table[0], 'title:StringDecodeJS(\'', '\')' )
+    if args.gid is None:
+        room = s.get('http://zooescape.com/backgammon-room.pl').text
+        table = find_all_between(
+            find_all_between(room,'RoomObjInit','RoomSetup')[0], '[',']' )
+        head = find_all_between( table[0], 'title:StringDecodeJS(\'', '\')' )
 
-    si = head.index('Game%3cBR%3eStatus') # status index
-    ti = head.index('Game%3cBR%3eType')   # type index
-    
-    for row in [ find_all_between(x,'{','}') for x in table[2:] ]:
-      if row[si].find('My Turn')!=-1:
-          i = row[si].find('gid=')+4
-          play(s,row[si][i:i+7])
+        si = head.index('Game%3cBR%3eStatus') # status index
+        ti = head.index('Game%3cBR%3eType')   # type index
 
+        for row in [ find_all_between(x,'{','}') for x in table[2:] ]:
+          if row[si].find('My Turn')!=-1:
+              i = row[si].find('gid=')+4
+              play(s,row[si][i:i+7])
+
+    else:
+        play(s,args.gid)
