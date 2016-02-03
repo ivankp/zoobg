@@ -292,23 +292,29 @@ hint
 
     return True
 
+#def pickup_from_ladder(s, n):
+
 def play_all(s):
     room = s.get('http://zooescape.com/backgammon-room.pl').text
     table = find_all_between(
         find_all_between(room,'RoomObjInit','RoomSetup')[0], '[',']' )
+    if len(table)==0: return 2 # got kicked out
     head = find_all_between( table[0], 'title:StringDecodeJS(\'', '\')' )
 
     si = head.index('Game%3cBR%3eStatus') # status index
     ti = head.index('Game%3cBR%3eType')   # type index
 
+    games = [ find_all_between(x,'{','}') for x in table[2:] ]
+
+    # if len(games)<20: pickup_from_ladder(s,20-len(games))
+
     played = False
 
-    for row in [ find_all_between(x,'{','}') for x in table[2:] ]:
-      if row[si].find('My Turn')!=-1:
-          i = row[si].find('gid=')+4
-          if not play(s,row[si][i:i+7]):
-              return 2 # got kicked out
-          played = True
+    for row in games if row[si].find('My Turn')!=-1:
+      i = row[si].find('gid=')+4
+      if not play(s,row[si][i:i+7]):
+          return 2 # got kicked out
+      played = True
 
     return 1 if played else 0
 
@@ -351,3 +357,4 @@ with requests.Session() as s:
 
     else:
         play(s,args.gid)
+
