@@ -220,6 +220,10 @@ def play(s,gid):
     url = 'http://zooescape.com/backgammon.pl?v=200&gid=%s' % (gid)
     html = s.get(url).text
 
+    # check if logged in
+    if html.find('Log in to <A href="/">play Backgammon</A>')!=-1:
+       return False 
+
     g = read_board(html)
     print g.board+':'+g.match+'\n'
 
@@ -251,8 +255,10 @@ hint
     gnubg = gnubg[gnubg.rfind('ply')+3:].strip()
 
     h = hint( gnubg, g.dice,
-        [ 25-alphA.find(x[0]) \
-          for x in re.findall(r'[A-Z].', g.state[0]) if int(x[1],16)>1 ]
+        [ 25-alphA.find(x[0]) for x in re.findall(r'[A-Z].', g.state[0]) ]
+        # if int(x[1],16)>1 removed
+        # count even 1 checker as a point here,
+        # because gnubg explicitly marks hist
     )
     print "Hits : ", h.hits
     print "Moves: ", h.moves
@@ -262,9 +268,10 @@ hint
 
     turn = len(re.findall(r'[1-6]{2}[a-zA-Z]*', g.state[1]))
 
-    s.post('http://zooescape.com/backgammon-roll.pl', {
-        'gid': gid, 'turn': turn-1
-    })
+    # TODO: only roll if needed
+    # s.post('http://zooescape.com/backgammon-roll.pl', {
+    #     'gid': gid, 'turn': turn-1
+    # })
 
     # Send move request ---------------------------------------------
     move = {
@@ -283,6 +290,8 @@ hint
 
     s.post(url, move)
 
+    return True
+
 def play_all(s):
     room = s.get('http://zooescape.com/backgammon-room.pl').text
     table = find_all_between(
@@ -297,32 +306,43 @@ def play_all(s):
     for row in [ find_all_between(x,'{','}') for x in table[2:] ]:
       if row[si].find('My Turn')!=-1:
           i = row[si].find('gid=')+4
-          play(s,row[si][i:i+7])
+          if not play(s,row[si][i:i+7]):
+              return 2 # got kicked out
           played = True
 
-    return played
+    return 1 if played else 0
+
+def login(s, cred, attempts):
+    pw_attempts = 0
+    while s.post('http://zooescape.com/login.pl', cred).text.find('Logging in.') == -1:
+        pw_attempts += 1
+        if pw_attempts == attempts:
+            print 'Cannot login as %s with this password' % (cred['userName'])
+            sys.exit(1)
+        else: cred['password'] = getpass.getpass()
+    print 'Loging success'
 
 delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600]
 
 #####################################################################
 # Open requests session #############################################
 with requests.Session() as s:
-    pw_attempts = 0
-    while s.post('http://zooescape.com/login.pl',
-                { 'userName': raw_input('Username: ') \
-                              if args.user is None else args.user,
-                  'password': getpass.getpass() }
-                ).text.find('Logging in.') == -1:
-        pw_attempts += 1
-        if pw_attempts == 3: sys.exit(1)
-        else: payload['password'] = getpass.getpass()
+    cred = { 'userName': raw_input('Username: ') \
+                         if args.user is None else args.user,
+             'password': getpass.getpass() }
+
+    login(s, cred, 3)
 
     if args.gid is None:
         if args.automatic:
             i = 0
             while True:
-                if play_all(s): i = 0
-                elif i!=len(delays)-1: i += 1
+                x = play_all(s)
+                if x==1: i = 0 # moves were made, pay attention
+                elif x==2: # got kicked out, login again
+                    time.sleep(5)
+                    login(s, cred, 1)
+                elif i!=len(delays)-1: i += 1 # max delay reached
                 print "sleep %d" % (delays[i])
                 time.sleep(delays[i])
 
