@@ -374,7 +374,7 @@ def login(s, cred, attempts):
             print 'Cannot login as %s with this password' % (cred['userName'])
             sys.exit(1)
         else: cred['password'] = getpass.getpass()
-    print 'Loging success'
+    print 'Login success'
 
 delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600]
 
