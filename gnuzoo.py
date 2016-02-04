@@ -16,6 +16,8 @@ parser.add_argument('--gnubg',
     help='gnubg program full path')
 parser.add_argument('-a','--automatic', action='store_true', default=False,
     help='periodically check for moves')
+parser.add_argument('-l','--ladder', action='store_true', default=False,
+    help='pick up games from the ladder')
 args = parser.parse_args()
 
 if args.gnubg is None:
@@ -222,7 +224,7 @@ def play(s,gid):
 
     # check if logged in
     if html.find('Log in to <A href="/">play Backgammon</A>')!=-1:
-       return False 
+       return False
 
     g = read_board(html)
     print g.board+':'+g.match+'\n'
@@ -292,7 +294,38 @@ hint
 
     return True
 
-#def pickup_from_ladder(s, n):
+def pickup_from_ladder(s):
+    page  = s.get('http://zooescape.com/ladder.pl?l=1').text
+    games = find_all_between(ladder,
+        'game-start-special','>Challenge</A></TD></TR>')
+
+    page  = s.get( 'http://zooescape.com' + find_all_between(ladder,
+            '<table class="page_menu"><tr><td><a href="',
+            '" title="previous page">')[0]
+        ).text
+    games = find_all_between(ladder,
+        'game-start-special','>Challenge</A></TD></TR>') + games
+
+    for g in games:
+        form = find_all_between( s.get(
+                'http://zooescape.com/game-start-special' + \
+            g.strip('\"')).text, '<FORM', '</FORM>' )
+
+        if len(form)>0:
+            action = 'http://zooescape.com' + find_all_between(
+                form[0][:form[0].find('>')],'action=\"','\"' )[0]
+
+            values = dict( val for sublist in \
+                [ re.findall(r'name=\"([^\"]+)\" +(?:value=\"?([^\"]+)\"?)',x) \
+                  for x in find_all_between(form[0],'<INPUT','>') ] \
+                  for val in sublist )
+
+            print 'Challenged %s in the ladder' % (values['opp'])
+            s.post(action, values)
+
+        else: break
+
+max_n_games = 1
 
 def play_all(s):
     room = s.get('http://zooescape.com/backgammon-room.pl').text
@@ -306,21 +339,29 @@ def play_all(s):
 
     games = [ find_all_between(x,'{','}') for x in table[2:] ]
 
-    # if len(games)<20: pickup_from_ladder(s,20-len(games))
+    global max_n_games
+    if len(games)>max_n_games:
+        max_n_games = len(games)
+        print 'Playing %d games' % (max_n_games)
+    elif args.ladder:
+        # pick up games from the ladder if has room
+        if len(games)<max_n_games: pickup_from_ladder(s)
 
     played = False
 
-    for row in games if row[si].find('My Turn')!=-1:
-      i = row[si].find('gid=')+4
-      if not play(s,row[si][i:i+7]):
-          return 2 # got kicked out
-      played = True
+    for row in games:
+        if row[si].find('My Turn')!=-1:
+            i = row[si].find('gid=')+4
+            if not play(s,row[si][i:i+7]):
+              return 2 # got kicked out
+            played = True
 
     return 1 if played else 0
 
 def login(s, cred, attempts):
     pw_attempts = 0
-    while s.post('http://zooescape.com/login.pl', cred).text.find('Logging in.') == -1:
+    while s.post('http://zooescape.com/login.pl',cred).\
+    text.find('Logging in.') == -1:
         pw_attempts += 1
         if pw_attempts == attempts:
             print 'Cannot login as %s with this password' % (cred['userName'])
@@ -357,4 +398,3 @@ with requests.Session() as s:
 
     else:
         play(s,args.gid)
-
