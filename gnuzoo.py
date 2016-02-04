@@ -303,14 +303,14 @@ hint
 
 def pickup_from_ladder(s):
     page  = s.get('http://zooescape.com/ladder.pl?l=1').text
-    games = find_all_between(ladder,
+    games = find_all_between(page,
         'game-start-special','>Challenge</A></TD></TR>')
 
-    page  = s.get( 'http://zooescape.com' + find_all_between(ladder,
+    page  = s.get( 'http://zooescape.com' + find_all_between(page,
             '<table class="page_menu"><tr><td><a href="',
             '" title="previous page">')[0]
         ).text
-    games = find_all_between(ladder,
+    games = find_all_between(page,
         'game-start-special','>Challenge</A></TD></TR>') + games
 
     for g in games:
