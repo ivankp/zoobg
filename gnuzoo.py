@@ -3,7 +3,7 @@
 # References:
 # https://www.gnu.org/software/gnubg/manual/gnubg.html#A-technical-description-of-the-Position-ID
 
-import sys, requests, re, getpass, time
+import sys, requests, re, getpass, time, datetime
 from bitarray import bitarray
 from subprocess import Popen, PIPE, STDOUT
 
@@ -12,18 +12,20 @@ parser = argparse.ArgumentParser()
 parser.add_argument('user', nargs='?', help='zooescape username')
 parser.add_argument('-g','--gid','--game', nargs='*',
     help='play only this game')
-parser.add_argument('--gnubg',
-    help='gnubg program full path')
 parser.add_argument('-a','--automatic', action='store_true', default=False,
     help='periodically check for moves')
 parser.add_argument('-l','--ladder', action='store_true', default=False,
     help='pick up games from the ladder')
 parser.add_argument('--accept', action='store_true', default=False,
     help='accept BG & NG challenges, can\'t play AD')
+parser.add_argument('--gnubg',
+    help='gnubg program full path')
 parser.add_argument('--plies', type=int, default=3,
     help='set threads [3]')
 parser.add_argument('--threads', type=int, default=4,
     help='set evaluation chequerplay evaluation plies [4]')
+parser.add_argument('--log',
+    help='write a log file')
 args = parser.parse_args()
 
 if args.gnubg is None:
@@ -31,6 +33,11 @@ if args.gnubg is None:
     if args.gnubg=='':
         print 'gnubg location must be specified with --gnubg'
         sys.exit(1)
+
+log_file = None if args.log is None else open(args.log,'a')
+def write_log(s):
+    log_file.write(
+        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+s+'\n')
 
 def find_all_between( s, first, last ):
     blocks = []
@@ -91,6 +98,9 @@ class game:
         self.moving = moving
         self.moving_black = self.players[self.moving][5]=='A'
         self.dice = [ int(x) for x in state[3] ]
+
+    def opp(self):
+        return self.players[1 if self.moving==0 else 0]
 
 def read_board(game_page):
     # Get game state variables ######################################
@@ -169,7 +179,7 @@ class hint:
         self.hits = []
         self.moves = []
         self.dice = dice
-        print 'points = ', points
+        # print 'points = ', points
         rep = re.findall(r'\([2-4]\)',txt)
         txt2 = txt
         if len(rep)>0:
@@ -257,7 +267,7 @@ set matchid %s
 set board %s
 hint
 ''' % (args.threads,args.plies, \
-       g.players[1 if g.moving==0 else 0][1],g.players[g.moving][1], \
+       g.opp()[1],g.players[g.moving][1], \
        g.match,g.board) )[0]
 
     gnubg = gnubg[gnubg.rfind(' GNU Backgammon'):]
@@ -265,15 +275,15 @@ hint
         print 'GNU Backgammon failed unexpectedly'
         sys.exit(1)
     print gnubg
-    gnubg = gnubg[gnubg.rfind('    1. '):]
-    gnubg = gnubg[:gnubg.find('Eq')]
-    gnubg = gnubg[gnubg.rfind('ply')+3:].strip()
+    l1 = gnubg.rfind('    1. ')
+    moves = gnubg[l1:gnubg.find('Eq',l1)]
+    moves = moves[moves.rfind('ply')+3:].strip()
 
-    h = hint( gnubg, g.dice,
+    h = hint( moves, g.dice,
         [ 25-alphA.find(x[0]) for x in re.findall(r'[A-Z].', g.state[0]) ]
         # if int(x[1],16)>1 removed
         # count even 1 checker as a point here,
-        # because gnubg explicitly marks hist
+        # because gnubg explicitly marks hits
     )
     print "Hits : ", h.hits
     print "Moves: ", h.moves
@@ -289,7 +299,7 @@ hint
     # })
 
     # Send move request ---------------------------------------------
-    move = {
+    s.post(url, {
         'bg_form_moves'   : ''.join([str(x) for x in h.dice])+''.join([ \
                             (alphA if g.moving_black else alphz)[x[0]] \
                             for x in h.moves ]),
@@ -300,10 +310,16 @@ hint
         'bg_submit'       : '1',
         'bg_button_submit': 'Submit',
         'bg_turn_num'     : turn
-    }
-    print move
+    } )
 
-    s.post(url, move)
+    if args.log is not None:
+        l1 += 6
+        l2 = gnubg.find('\n',l1)
+        l3 = gnubg.find('\n',l2+1)
+        write_log( '%7s %15s %4s %3s\n   %s\n   %s' % (
+            gid, g.opp()[1], g.opp()[7], g.opp()[10],
+            gnubg[l1:l2], gnubg[l2+7:l3-1]
+        ) )
 
     return True
 
@@ -333,7 +349,9 @@ def pickup_from_ladder(s):
                   for x in find_all_between(form[0],'<INPUT','>') ] \
                   for val in sublist )
 
-            print 'Challenged %s in the ladder' % (values['opp'])
+            msg = 'challenged %s in BG ladder' % (values['opp'])
+            print msg
+            if args.log is not None: write_log(msg)
             s.post(action, values)
 
         else: break
@@ -391,6 +409,7 @@ def login(s, cred, attempts):
             print 'Cannot login as %s with this password' % (cred['userName'])
             sys.exit(1)
         else: cred['password'] = getpass.getpass()
+    if args.log is not None: write_log('logged in as %s' % (cred['userName']))
     print 'Login success'
 
 delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600]
