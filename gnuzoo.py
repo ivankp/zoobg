@@ -18,6 +18,8 @@ parser.add_argument('-a','--automatic', action='store_true', default=False,
     help='periodically check for moves')
 parser.add_argument('-l','--ladder', action='store_true', default=False,
     help='pick up games from the ladder')
+parser.add_argument('--accept', action='store_true', default=False,
+    help='accept BG & NG challenges, can\'t play AD')
 args = parser.parse_args()
 
 if args.gnubg is None:
@@ -359,9 +361,20 @@ def play_all(s):
     for row in games:
         if row[si].find('My Turn')!=-1:
             i = row[si].find('gid=')+4
-            if not play(s,row[si][i:i+7]):
-              return 2 # got kicked out
+            if not play(s,row[si][i:i+7]): return 2 # got kicked out
             played = True
+        elif args.accept and row[si].find('New Challenge')!=-1:
+            href = find_all_between(row[si],'href=\"','\"')[0]
+            game_type = int(re.findall(r'v=20(\d)',href)[0])
+            if game_type==0 or game_type==1:
+                s.post('http://zooescape.com'+href,
+                        {'bg_challenge_radio':'1',
+                         'bg_challenge_message':''} )
+            # TODO: reject AD games
+            # else:
+            #     s.post('http://zooescape.com'+href,
+            #             {'bg_challenge_radio':'1',
+            #              'bg_challenge_message':''} )
 
     return 1 if played else 0
 
