@@ -34,10 +34,11 @@ if args.gnubg is None:
         print 'gnubg location must be specified with --gnubg'
         sys.exit(1)
 
-log_file = None if args.log is None else open(args.log,'a')
 def write_log(s):
-    log_file.write(
-        datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")+' '+s+'\n')
+    if args.log is not None:
+        with open(args.log,'a') as f:
+            f.write(datetime.datetime.now().\
+              strftime("%Y-%m-%d %H:%M:%S")+' '+s+'\n')
 
 def find_all_between( s, first, last ):
     blocks = []
