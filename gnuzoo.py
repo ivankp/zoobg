@@ -249,11 +249,16 @@ set evaluation cubedecision evaluation cubeful off
 set beavers 0
 set jacoby off
 
+set player 0 name %s
+set player 1 name %s
+
 new game
 set matchid %s
 set board %s
 hint
-''' % (args.threads,args.plies,g.match,g.board) )[0]
+''' % (args.threads,args.plies, \
+       g.players[1 if g.moving==0 else 0][1],g.players[g.moving][1], \
+       g.match,g.board) )[0]
 
     gnubg = gnubg[gnubg.rfind(' GNU Backgammon'):]
     if len(gnubg)==0:
