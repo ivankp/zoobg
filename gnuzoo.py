@@ -214,15 +214,15 @@ class hint:
                 self.moves.append(p)
         # flip the moves order if necessary
         if (len(self.moves)==2):
-            if (self.moves[0][0]-self.moves[0][1]>dice[0]) \
-            or (self.moves[1][0]-self.moves[1][1]>dice[1]):
+            if (self.moves[0][0]-self.moves[0][1]>self.dice[0]) \
+            or (self.moves[1][0]-self.moves[1][1]>self.dice[1]):
                 self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
         elif len(self.moves)==1:
             if self.moves[0][1]==0:
-                if self.moves[0][0]-self.moves[0][1]<dice[0]:
+                if self.moves[0][0]-self.moves[0][1]>self.dice[0]:
                     self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
             else:
-                if self.moves[0][0]-self.moves[0][1]!=dice[0]:
+                if self.moves[0][0]-self.moves[0][1]!=self.dice[0]:
                     self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
         elif len(self.moves)>2:
             i = 0
