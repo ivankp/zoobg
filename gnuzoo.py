@@ -20,6 +20,10 @@ parser.add_argument('-l','--ladder', action='store_true', default=False,
     help='pick up games from the ladder')
 parser.add_argument('--accept', action='store_true', default=False,
     help='accept BG & NG challenges, can\'t play AD')
+parser.add_argument('--plies', type=int, default=3,
+    help='set threads [3]')
+parser.add_argument('--threads', type=int, default=4,
+    help='set evaluation chequerplay evaluation plies [4]')
 args = parser.parse_args()
 
 if args.gnubg is None:
@@ -88,18 +92,13 @@ class game:
         self.moving_black = self.players[self.moving][5]=='A'
         self.dice = [ int(x) for x in state[3] ]
 
-def current(game_page,pid):
-    SetStateMP  = find_all_between( game_page, 'Backgammon.SetStateMP(', ');' )[0]
-    state = [ x.strip(' "') for x in SetStateMP.split(', ') ]
-    return state[2]==pid
-
 def read_board(game_page):
     # Get game state variables ######################################
-    GameSetupMP = find_all_between( game_page, 'Backgammon.GameSetupMP(', ');' )[0]
-    SetStateMP  = find_all_between( game_page, 'Backgammon.SetStateMP(', ');' )[0]
+    GameSetupMP = find_all_between(game_page,'Backgammon.GameSetupMP(',');')[0]
+    SetStateMP  = find_all_between(game_page,'Backgammon.SetStateMP(', ');')[0]
 
     players = [ [ y.strip('\'') for y in x.strip(' ').split(', ') ]
-                for x in find_all_between( GameSetupMP, 'new PlayerBG(', ')' ) ]
+                for x in find_all_between(GameSetupMP,'new PlayerBG(',')') ]
 
     setup_tail = GameSetupMP[GameSetupMP.rfind(']')+3:].split(', ')
 
@@ -242,8 +241,8 @@ def play(s,gid):
     pipe = Popen([args.gnubg,'-t'], stdout=PIPE, stdin=PIPE, stderr=STDOUT)
     gnubg = pipe.communicate( input='''
 set sound enable false
-set threads 4
-set evaluation chequerplay evaluation plies 3
+set threads %d
+set evaluation chequerplay evaluation plies %d
 set evaluation chequerplay evaluation cubeful off
 set evaluation cubedecision evaluation cubeful off
 
@@ -254,7 +253,7 @@ new game
 set matchid %s
 set board %s
 hint
-''' % (g.match,g.board) )[0]
+''' % (args.threads,args.plies,g.match,g.board) )[0]
 
     gnubg = gnubg[gnubg.rfind(' GNU Backgammon'):]
     if len(gnubg)==0:
@@ -417,4 +416,4 @@ with requests.Session() as s:
             play_all(s)
 
     else:
-        play(s,args.gid)
+        for gid in args.gid: play(s,gid)
