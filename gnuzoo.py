@@ -404,12 +404,17 @@ def play_all(s):
 def login(s, cred, attempts):
     pw_attempts = 0
     while s.post('http://zooescape.com/login.pl',cred).\
-    text.find('Logging in.') == -1:
-        pw_attempts += 1
+            text.find('Logging in.') == -1:
         if pw_attempts == attempts:
             print 'Cannot login as %s with this password' % (cred['userName'])
             sys.exit(1)
-        else: cred['password'] = getpass.getpass()
+        else:
+            try:
+                cred['password'] = getpass.getpass()
+            except (KeyboardInterrupt):
+                print ''
+                sys.exit(1)
+        pw_attempts += 1
     if args.log is not None: write_log('logged in as %s' % (cred['userName']))
     print 'Login success'
 
@@ -420,25 +425,24 @@ delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600]
 with requests.Session() as s:
     cred = { 'userName': raw_input('Username: ') \
                          if args.user is None else args.user,
-             'password': getpass.getpass() }
+             'password': '' }
 
     login(s, cred, 3)
-
-    if args.gid is None:
-        if args.automatic:
-            i = 0
-            while True:
-                x = play_all(s)
-                if x==1: i = 0 # moves were made, pay attention
-                elif x==2: # got kicked out, login again
-                    time.sleep(5)
-                    login(s, cred, 1)
-                elif i!=len(delays)-1: i += 1 # max delay reached
-                print "sleep %d" % (delays[i])
-                time.sleep(delays[i])
-
+    try:
+        if args.gid is None:
+            if args.automatic:
+                i = 0
+                while True:
+                    x = play_all(s)
+                    if x==1: i = 0 # moves were made, pay attention
+                    elif x==2: # got kicked out, login again
+                        time.sleep(5)
+                        login(s, cred, 1)
+                    elif i!=len(delays)-1: i += 1 # max delay reached
+                    print "sleep %d" % (delays[i])
+                    time.sleep(delays[i])
+            else:
+                play_all(s)
         else:
-            play_all(s)
-
-    else:
-        for gid in args.gid: play(s,gid)
+            for gid in args.gid: play(s,gid)
+    except (KeyboardInterrupt): pass
