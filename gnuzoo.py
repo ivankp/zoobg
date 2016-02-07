@@ -426,7 +426,6 @@ with requests.Session() as s:
     cred = { 'userName': raw_input('Username: ') \
                          if args.user is None else args.user,
              'password': '' }
-
     login(s, cred, 3)
     try:
         if args.gid is None:
