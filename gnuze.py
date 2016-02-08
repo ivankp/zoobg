@@ -30,6 +30,8 @@ parser.add_argument('--threads', type=int, default=4,
     help='set evaluation chequerplay evaluation plies [4]')
 parser.add_argument('--log',
     help='write a log file')
+parser.add_argument('-d','--delay', nargs='*',
+    help='delay times')
 args = parser.parse_args()
 
 if args.gnubg is None:
@@ -154,7 +156,7 @@ def read_board(game_page):
         bin(int(state[3][0]))[:1:-1].ljust(3,'0') ) # die 1
     bit_array[18:21] = bitarray(
         bin(int(state[3][1]))[:1:-1].ljust(3,'0') ) # die 2
-    bit_array[21:36] = bitarray('100000000000000') # match length
+    bit_array[21:36] = bitarray('000000000000000') # match length
     #bit_array[36:51] = bitarray('010000000000000') # score 1
     #bit_array[51:66] = bitarray('001000000000000') # score 2
 
@@ -388,7 +390,8 @@ def play_all(s):
 
     return 1 if played else 0
 
-delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600]
+delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600] \
+         if args.delay is None else sorted([ int(x) for x in args.delay])
 
 #####################################################################
 # Open requests session #############################################
