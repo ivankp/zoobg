@@ -344,15 +344,15 @@ hint
     return True
 
 def pickup_from_ladder(s,l):
-    page1 = s.get('http://zooescape.com/ladder.pl?l=%d' % (l)).text
+    page1 = s.get('http://zooescape.com/ladder.pl?l=%d' % (l.l)).text
     page2 = s.get( 'http://zooescape.com' + find_all_between(page1,
         '<table class="page_menu"><tr><td><a href="',
         '" title="previous page">')[0] ).text
 
-    l = ladder(page2)
-    if len(l.challenges)==0: l = ladder(page1)
+    games = ladder(page2)
+    if len(games.challenges)==0: games = ladder(page1)
 
-    for g in l.above(args.only_above):
+    for g in games.above(args.only_above):
         form = find_all_between(
             s.get('http://zooescape.com/game-start-special'+g[1]).text,
             '<FORM', '</FORM>' )
@@ -395,7 +395,7 @@ def play_all(s):
         # pick up games from the ladder if has room
         if len(games)<max_n_games:
             for l in args.ladder:
-                pickup_from_ladder(s,l.l)
+                pickup_from_ladder(s,l)
 
     played = False
 
