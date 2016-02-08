@@ -7,6 +7,10 @@ import sys, requests, re, getpass, time, datetime
 from bitarray import bitarray
 from subprocess import Popen, PIPE, STDOUT
 
+from fab import find_all_between
+from zelogin import login
+from logfile import logfile
+
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('user', nargs='?', help='zooescape username')
@@ -34,24 +38,7 @@ if args.gnubg is None:
         print 'gnubg location must be specified with --gnubg'
         sys.exit(1)
 
-def write_log(s):
-    if args.log is not None:
-        with open(args.log,'a') as f:
-            f.write(datetime.datetime.now().\
-              strftime("%Y-%m-%d %H:%M:%S")+' '+s+'\n')
-
-def find_all_between( s, first, last ):
-    blocks = []
-    start = 0
-    while True:
-        start = s.find( first, start )
-        if start == -1:
-            return blocks
-        start += len( first )
-        end = s.find( last, start )
-        if end == -1:
-            return blocks
-        blocks.append( s[start:end] )
+log_file = None if args.log is None else logfile(args.log)
 
 alphA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 alphz = 'zyxwvutsrqponmlkjihgfedcba'
@@ -313,11 +300,11 @@ hint
         'bg_turn_num'     : turn
     } )
 
-    if args.log is not None:
+    if log_file is not None:
         l1 += 6
         l2 = gnubg.find('\n',l1)
         l3 = gnubg.find('\n',l2+1)
-        write_log( '%7s %15s %4s %3s\n   %s\n   %s' % (
+        log_file.write( '%7s %15s %4s %3s\n   %s\n   %s' % (
             gid, g.opp()[1], g.opp()[7], g.opp()[10],
             gnubg[l1:l2], gnubg[l2+7:l3-1]
         ) )
@@ -352,7 +339,7 @@ def pickup_from_ladder(s):
 
             msg = 'challenged %s in BG ladder' % (values['opp'])
             print msg
-            if args.log is not None: write_log(msg)
+            if log_file is not None: log_file.write(msg)
             s.post(action, values)
 
         else: break
@@ -401,23 +388,6 @@ def play_all(s):
 
     return 1 if played else 0
 
-def login(s, cred, attempts):
-    pw_attempts = 0
-    while s.post('http://zooescape.com/login.pl',cred).\
-            text.find('Logging in.') == -1:
-        if pw_attempts == attempts:
-            print 'Cannot login as %s with this password' % (cred['userName'])
-            sys.exit(1)
-        else:
-            try:
-                cred['password'] = getpass.getpass()
-            except (KeyboardInterrupt):
-                print ''
-                sys.exit(1)
-        pw_attempts += 1
-    if args.log is not None: write_log('logged in as %s' % (cred['userName']))
-    print 'Login success'
-
 delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600]
 
 #####################################################################
@@ -426,7 +396,7 @@ with requests.Session() as s:
     cred = { 'userName': raw_input('Username: ') \
                          if args.user is None else args.user,
              'password': '' }
-    login(s, cred, 3)
+    login(s, cred, 3, log_file)
     try:
         if args.gid is None:
             if args.automatic:
@@ -436,7 +406,7 @@ with requests.Session() as s:
                     if x==1: i = 0 # moves were made, pay attention
                     elif x==2: # got kicked out, login again
                         time.sleep(5)
-                        login(s, cred, 1)
+                        login(s, cred, 1, log_file)
                     elif i!=len(delays)-1: i += 1 # max delay reached
                     print "sleep %d" % (delays[i])
                     time.sleep(delays[i])
