@@ -25,6 +25,10 @@ class gametype:
         else:
             print 'GNUBG can only play backgammon and nackgammon'
             sys.exit(1)
+    def __eq__(self, other):
+        return (isinstance(other, self.__class__) and self.g == other.g)
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -36,7 +40,8 @@ parser.add_argument('-a','--automatic', action='store_true', default=False,
 parser.add_argument('-l','--ladder', type=gametype, nargs='*',
     help='pick up games from the ladder: BG, NG')
 parser.add_argument('-t','--type', type=gametype, nargs='*',
-    help='restrict game type: BG, NG', default=['bg','ng'])
+    default=[gametype('bg'),gametype('ng')],
+    help='restrict game type: BG, NG')
 parser.add_argument('--accept', action='store_true', default=False,
     help='accept BG & NG challenges, can\'t play AD')
 parser.add_argument('--only-above', action='store_true', default=False,
@@ -59,9 +64,9 @@ if args.gnubg is None:
         print 'gnubg location must be specified with --gnubg'
         sys.exit(1)
 
-for l in args.ladder:
-    for t in args.type:
-        if l.g!=t.g:
+if args.ladder is not None:
+    for l in args.ladder:
+        if l not in args.type:
             print 'Chosen ladder conflicts with game type restriction'
             sys.exit(1)
 
