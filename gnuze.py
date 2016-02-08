@@ -8,8 +8,23 @@ from bitarray import bitarray
 from subprocess import Popen, PIPE, STDOUT
 
 from fab import find_all_between
-from zelogin import login
 from logfile import logfile
+from zelogin import login
+from zeladder import ladder
+
+class gametype:
+    def __init__(self,s):
+        if s.lower()=='bg':
+            self.g = 0
+            self.l = 1
+            self.s = 'BG'
+        elif s.lower()=='ng':
+            self.g = 1
+            self.l = 2
+            self.s = 'NG'
+        else:
+            print 'GNUBG can only play backgammon and nackgammon'
+            sys.exit(1)
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -18,10 +33,14 @@ parser.add_argument('-g','--gid','--game', nargs='*',
     help='play only this game')
 parser.add_argument('-a','--automatic', action='store_true', default=False,
     help='periodically check for moves')
-parser.add_argument('-l','--ladder', action='store_true', default=False,
-    help='pick up games from the ladder')
+parser.add_argument('-l','--ladder', type=gametype, nargs='*',
+    help='pick up games from the ladder: BG, NG')
+parser.add_argument('-t','--type', type=gametype, nargs='*',
+    help='restrict game type: BG, NG', default=['bg','ng'])
 parser.add_argument('--accept', action='store_true', default=False,
     help='accept BG & NG challenges, can\'t play AD')
+parser.add_argument('--only-above', action='store_true', default=False,
+    help='challenge opponents only above current ladder rank')
 parser.add_argument('--gnubg',
     help='gnubg program full path')
 parser.add_argument('--plies', type=int, default=3,
@@ -39,6 +58,12 @@ if args.gnubg is None:
     if args.gnubg=='':
         print 'gnubg location must be specified with --gnubg'
         sys.exit(1)
+
+for l in args.ladder:
+    for t in args.type:
+        if l.g!=t.g:
+            print 'Chosen ladder conflicts with game type restriction'
+            sys.exit(1)
 
 log_file = None if args.log is None else logfile(args.log)
 
@@ -313,22 +338,19 @@ hint
 
     return True
 
-def pickup_from_ladder(s):
-    page  = s.get('http://zooescape.com/ladder.pl?l=1').text
-    games = find_all_between(page,
-        'game-start-special','>Challenge</A></TD></TR>')
+def pickup_from_ladder(s,l):
+    page1 = s.get('http://zooescape.com/ladder.pl?l=%d' % (l)).text
+    page2 = s.get( 'http://zooescape.com' + find_all_between(page1,
+        '<table class="page_menu"><tr><td><a href="',
+        '" title="previous page">')[0] ).text
 
-    page  = s.get( 'http://zooescape.com' + find_all_between(page,
-            '<table class="page_menu"><tr><td><a href="',
-            '" title="previous page">')[0]
-        ).text
-    games = find_all_between(page,
-        'game-start-special','>Challenge</A></TD></TR>') + games
+    l = ladder(page2)
+    if len(l.challenges)==0: l = ladder(page1)
 
-    for g in games:
-        form = find_all_between( s.get(
-                'http://zooescape.com/game-start-special' + \
-            g.strip('\"')).text, '<FORM', '</FORM>' )
+    for g in l.above(args.only_above):
+        form = find_all_between(
+            s.get('http://zooescape.com/game-start-special'+g[1]).text,
+            '<FORM', '</FORM>' )
 
         if len(form)>0:
             action = 'http://zooescape.com' + find_all_between(
@@ -339,7 +361,7 @@ def pickup_from_ladder(s):
                   for x in find_all_between(form[0],'<INPUT','>') ] \
                   for val in sublist )
 
-            msg = 'challenged %s in BG ladder' % (values['opp'])
+            msg = 'challenged %s in %s ladder' % (values['opp'],l.s)
             print msg
             if log_file is not None: log_file.write(msg)
             s.post(action, values)
@@ -364,9 +386,11 @@ def play_all(s):
     if len(games)>max_n_games:
         max_n_games = len(games)
         print 'Playing %d games' % (max_n_games)
-    elif args.ladder:
+    elif args.ladder is not None:
         # pick up games from the ladder if has room
-        if len(games)<max_n_games: pickup_from_ladder(s)
+        if len(games)<max_n_games:
+            for l in args.ladder:
+                pickup_from_ladder(s,l.l)
 
     played = False
 
@@ -378,15 +402,16 @@ def play_all(s):
         elif args.accept and row[si].find('New Challenge')!=-1:
             href = find_all_between(row[si],'href=\"','\"')[0]
             game_type = int(re.findall(r'v=20(\d)',href)[0])
-            if game_type==0 or game_type==1:
+            accepted = False
+            for t in args.type:
+                if game_type==t.g:
+                    s.post('http://zooescape.com'+href,
+                        {'bg_challenge_radio':'1', 'bg_challenge_message':''} )
+                    accepted = True
+                    continue
+            if not accepted:
                 s.post('http://zooescape.com'+href,
-                        {'bg_challenge_radio':'1',
-                         'bg_challenge_message':''} )
-            # TODO: reject AD games
-            # else:
-            #     s.post('http://zooescape.com'+href,
-            #             {'bg_challenge_radio':'1',
-            #              'bg_challenge_message':''} )
+                    {'bg_challenge_radio':'0', 'bg_challenge_message':''} )
 
     return 1 if played else 0
 
@@ -398,7 +423,7 @@ delays = [1, 10, 15, 30, 30, 60, 60, 120, 120, 120, 300, 300, 600] \
 with requests.Session() as s:
     cred = { 'userName': raw_input('Username: ') \
                          if args.user is None else args.user,
-             'password': '' }
+             'password': None }
     login(s, cred, 3, log_file)
     try:
         if args.gid is None:
