@@ -360,7 +360,7 @@ def pickup_from_ladder(s,l):
 
     for g in games:
         form = find_all_between(
-            s.get('http://zooescape.com/game-start-special'+g).text,
+            s.get('http://zooescape.com/game-start-special'+g[1]).text,
             '<FORM', '</FORM>' )
 
         if len(form)>0:
