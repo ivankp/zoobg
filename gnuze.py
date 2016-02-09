@@ -347,16 +347,20 @@ hint
 
 def pickup_from_ladder(s,l):
     page1 = s.get('http://zooescape.com/ladder.pl?l=%d' % (l.l)).text
-    page2 = s.get( 'http://zooescape.com' + find_all_between(page1,
+
+    prev_page_link = find_all_between(page1,
         '<table class="page_menu"><tr><td><a href="',
-        '" title="previous page">')[0] ).text
+        '" title="previous page">')
 
-    games = ladder(page2)
-    if len(games.challenges)==0: games = ladder(page1)
+    games = ladder(page1).above(args.only_above)
 
-    for g in games.above(args.only_above):
+    if len(prev_page_link)!=0:
+        page2 = s.get('http://zooescape.com' + prev_page_link[0]).text
+        games = ladder(page2).challenges + games
+
+    for g in games:
         form = find_all_between(
-            s.get('http://zooescape.com/game-start-special'+g[1]).text,
+            s.get('http://zooescape.com/game-start-special'+g).text,
             '<FORM', '</FORM>' )
 
         if len(form)>0:
