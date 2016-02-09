@@ -378,7 +378,15 @@ def pickup_from_ladder(s,l):
 max_n_games = args.ngames
 
 def play_all(s):
-    room = s.get('http://zooescape.com/backgammon-room.pl').text
+    while True:
+        try:
+            room = s.get('http://zooescape.com/backgammon-room.pl').text
+        except requests.exceptions.ConnectionError as e:
+            print e
+            time.sleep(10) # wait before reconnecting
+            continue
+        else: break
+
     table = find_all_between(
         find_all_between(room,'RoomObjInit','RoomSetup')[0], '[',']' )
     if len(table)==0: return 2 # got kicked out
