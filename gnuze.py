@@ -46,6 +46,8 @@ parser.add_argument('--accept', action='store_true', default=False,
     help='accept BG & NG challenges, can\'t play AD')
 parser.add_argument('--only-above', action='store_true', default=False,
     help='challenge opponents only above current ladder rank')
+parser.add_argument('-n','--ngames', type=int, default=1,
+    help='set number of games')
 parser.add_argument('--gnubg',
     help='gnubg program full path')
 parser.add_argument('--plies', type=int, default=3,
@@ -373,7 +375,7 @@ def pickup_from_ladder(s,l):
 
         else: break
 
-max_n_games = 1
+max_n_games = args.ngames
 
 def play_all(s):
     room = s.get('http://zooescape.com/backgammon-room.pl').text
