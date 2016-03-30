@@ -11,7 +11,8 @@ class hint:
         if len(rep)>0:
             rep = int(rep[0][1])
             txt2 = re.sub('([^ ]+)\\(%d\\)'%(rep), '\\1 '*rep, txt)
-        for move in txt2.split():
+        moves = txt2.split()
+        for move in moves:
             pos = move.split('/')
             pos_int = []
             for p in pos:
@@ -28,20 +29,20 @@ class hint:
 
             pp = [ pos_int[i:i+2] for i in range(0,len(pos_int)-1) ]
 
-            if len(pp)==1 and pp[0][1]==0: # split bearoff moves
-                d = pp[0][0]-pp[0][1]
-                if d<=self.dice[0]+self.dice[1] \
-                and not (d==self.dice[0] or d==self.dice[1]):
-                    if self.dice[0] > self.dice[1]:
-                        self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
-                    p = pp[0][0]-self.dice[0]
-                    if p not in points:
+            # split bearoff moves
+            if len(moves)==1:
+                if pp[0][1]==0 and dice[0]!=dice[1]:
+                    d = pp[0][0]-pp[0][1]
+                    if d<=self.dice[0]+self.dice[1] \
+                    and not (d==self.dice[0] or d==self.dice[1]):
+                        if self.dice[0] > self.dice[1]:
+                            self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
+                        p = pp[0][0]-self.dice[0]
+                        if p in points:
+                            p = pp[0][0]-self.dice[1]
+                            self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
                         self.moves = [[pp[0][0],p],[p,0]]
-                    else:
-                        p = pp[0][0]-self.dice[1]
-                        self.moves = [[pp[0][0],p],[p,0]]
-                        self.dice[0], self.dice[1] = self.dice[1], self.dice[0]
-                    pp = [] # do not loop over pp below
+                        pp = [] # do not loop over pp below
 
             for p in pp:
                 d = p[0]-p[1]
@@ -55,6 +56,8 @@ class hint:
                     p[0] = p[0]-die
                     d = p[0]-p[1]
                 self.moves.append(p)
+
+        print self.moves
 
         # flip the moves order if necessary
         if len(self.moves)==2:

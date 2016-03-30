@@ -23,3 +23,5 @@ test(hint( "3/off", [1,5], [1] ))
 test(hint( "6/off", [5,2], [] ))
 
 test(hint( "6/off", [2,2], [] ))
+
+test(hint( "5/off 4/2", [6,2], [] ))
