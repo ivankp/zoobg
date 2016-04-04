@@ -31,8 +31,9 @@ class hint:
 
             # split bearoff moves
             if len(moves)==1:
-                if pp[0][1]==0 and dice[0]!=dice[1]:
-                    d = pp[0][0]-pp[0][1]
+                d = pp[0][0]-pp[0][1]
+                if pp[0][1]==0 and dice[0]!=dice[1] \
+                and not (dice[0]>d or dice[1]>d):
                     if d<=self.dice[0]+self.dice[1] \
                     and not (d==self.dice[0] or d==self.dice[1]):
                         if self.dice[0] > self.dice[1]:
@@ -82,3 +83,4 @@ class hint:
                 if self.moves[i][0]==25 and self.moves[i-1][0]!=25:
                     self.moves = [self.moves[i]]+self.moves[:i]+self.moves[i+1:]
                 else: i -= 1
+

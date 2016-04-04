@@ -16,12 +16,14 @@ def test(h):
 
 # GNU Backgammon  Position ID: tu0UAiAWAAAAAA
 #                 Match ID   : cIkGAAAAAAAA
-test(hint( "3/off", [1,5], [1] ))
+#test(hint( "3/off", [1,5], [1] ))
 
 # GNU Backgammon  Position ID: zwcBAPjdIwAAAA
 #                 Match ID   : cIkKAAAAAAAA
-test(hint( "6/off", [5,2], [] ))
+#test(hint( "6/off", [5,2], [] ))
 
-test(hint( "6/off", [2,2], [] ))
+#test(hint( "6/off", [2,2], [] ))
 
-test(hint( "5/off 4/2", [6,2], [] ))
+#test(hint( "5/off 4/2", [6,2], [] ))
+
+test(hint( "1/off", [5,4], [] ))
