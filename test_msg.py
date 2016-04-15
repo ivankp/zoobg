@@ -25,4 +25,4 @@ with requests.Session() as s:
     page = s.get(url).text
 
     db = msgdb(args.sqldb)
-    db.check(page,args.gid)
+    db.check(page,args.gid,'opp')
