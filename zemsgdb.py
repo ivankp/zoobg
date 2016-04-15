@@ -16,23 +16,20 @@ class zemsg:
         return str(self.mid)+' from '+self.who \
                +' at '+str(self.time)+':\n'+'  '+self.msg
 
-class msgdb:
-    def __init__(self,filename):
-        self.db = sqlite3.connect(filename)
-        self.cur = self.db.cursor()
+def check_msgs(filename,page,gid,opp):
+    msglist = find_all_between(page,'MessageList([{','}])')
+    if len(msglist)!=1: return
 
-    def check(self,page,gid,opp):
-        # msgs = []
-        new_msgs = False
-        for msg in [ zemsg(x) for x in \
-            find_all_between(page,'MessageList([{','}])')[0].split('},{')
-        ]:
-            self.cur.execute('SELECT mid FROM zemsgs WHERE mid = ?', (msg.mid,))
-            if self.cur.fetchone() is None: # Message is new
-                self.cur.execute('INSERT INTO zemsgs VALUES (?,?,?,?,?)',
-                    (msg.mid,gid,opp,msg.time,msg.msg,) )
-                new_msgs = True
-                print msg
-                # msgs.append('mail ' % ())
+    db = sqlite3.connect(filename)
+    cur = db.cursor()
 
-        if new_msgs: self.db.commit()
+    new_msgs = False
+    for msg in [ zemsg(x) for x in msglist[0].split('},{') ]:
+        cur.execute('SELECT mid FROM zemsgs WHERE mid = ?', (msg.mid,))
+        if cur.fetchone() is None: # Message is new
+            cur.execute('INSERT INTO zemsgs VALUES (?,?,?,?,?)',
+                (msg.mid,gid,opp,msg.time,msg.msg,) )
+            new_msgs = True
+            print msg
+
+    if new_msgs: db.commit()

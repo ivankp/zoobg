@@ -12,7 +12,7 @@ from logfile import logfile
 from zelogin import login
 from zeladder import ladder
 from zehint import hint
-from zemsgdb import msgdb
+from zemsgdb import check_msgs
 
 class gametype:
     def __init__(self,s):
@@ -60,7 +60,7 @@ parser.add_argument('--log',
     help='write a log file')
 parser.add_argument('-d','--delay', nargs='*',
     help='delay times')
-parser.add_argument('--sqldb', nargs='1',
+parser.add_argument('--msgdb',
     help='sql database file for messages')
 args = parser.parse_args()
 
@@ -210,11 +210,11 @@ def play(s,gid):
     if html.find('Log in to <A href="/">play Backgammon</A>')!=-1:
        return False
 
-    msg_db = msgdb(args.sqldb)
-    msg_db.check(page,gid,g.opp()[1])
-
     g = read_board(html)
     print g.board+':'+g.match+'\n'
+
+    if args.msgdb is not None:
+        check_msgs(args.msgdb,html,gid,g.opp()[1])
 
     # Get hint from gnubg -------------------------------------------
     pipe = Popen([args.gnubg,'-t'], stdout=PIPE, stdin=PIPE, stderr=STDOUT)
